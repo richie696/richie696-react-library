@@ -1,0 +1,22 @@
+{
+  "name": "richie696-react-library",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Framework-neutral and React-native foundations for Richie696 applications.",
+  "license": "MIT",
+  "author": "richie696",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "typecheck": "npm run build && npm run typecheck --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^6.0.3"
+  }
+}
