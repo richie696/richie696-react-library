@@ -10,7 +10,8 @@ import tempfile
 from pathlib import Path
 
 
-TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "react-spa"
+TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "assets" / "react-spa"
+IGNORED_TEMPLATE_NAMES = frozenset({".DS_Store"})
 PACKAGE_NAME_PATTERN = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*\Z")
 REPLACEMENTS = {
     b"__PACKAGE_NAME__": lambda name: name.encode("utf-8"),
@@ -25,7 +26,9 @@ def template_files() -> tuple[Path, ...]:
     entries = tuple(TEMPLATE_DIR.rglob("*"))
     if any(entry.is_symlink() for entry in entries):
         raise ValueError("The template must not contain symlinks")
-    files = tuple(sorted(entry for entry in entries if entry.is_file()))
+    files = tuple(
+        sorted(entry for entry in entries if entry.is_file() and entry.name not in IGNORED_TEMPLATE_NAMES)
+    )
     if not files:
         raise ValueError("The template contains no files")
     return files

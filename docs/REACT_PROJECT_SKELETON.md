@@ -4,11 +4,11 @@
 
 ## 自动生成的最小工程
 
-仓库维护的 `scripts/create_react_project.py` + `templates/react-spa` 是本规范的一个**具体实现 profile**：Vite SPA、React 19、TypeScript 6、严格类型、Hooks lint、SCSS 语义 token 与浅/深色皮肤。它不代表所有 React 项目必须使用 Vite；Next.js、SSR、React Native 应按平台入口另建 profile，不套用客户端 DOM 模板。模板仅创建已有实际用途的 `app`、`core`、`features/home` 文件，不预建空的 `shared`、路由、API、store 或测试目录，也不依赖 `@richie696/*`。
+`skills/react-project-scaffold/scripts/create_react_project.py` + Skill 内的 `assets/react-spa` 是本规范的一个**具体实现 profile**：Vite SPA、React 19、TypeScript 6、严格类型、Hooks lint、SCSS 语义 token 与浅/深色皮肤。脚本和模板随 Skill 一起安装，不依赖工程根目录。它不代表所有 React 项目必须使用 Vite；Next.js、SSR、React Native 应按平台入口另建 profile，不套用客户端 DOM 模板。模板仅创建已有实际用途的 `app`、`core`、`features/home` 文件，不预建空的 `shared`、路由、API、store 或测试目录，也不依赖 `@richie696/*`。
 
 ```bash
-python3 scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app --dry-run
-python3 scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app
+python3 skills/react-project-scaffold/scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app --dry-run
+python3 skills/react-project-scaffold/scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app
 cd /absolute/path/my-react-app
 npm install
 npm run typecheck

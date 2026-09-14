@@ -52,8 +52,8 @@ Reusable React application standards are organized under [React 工程规范](do
 For a new minimal Vite SPA, preview and generate the maintained skeleton:
 
 ```bash
-python3 scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app --dry-run
-python3 scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app
+python3 skills/react-project-scaffold/scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app --dry-run
+python3 skills/react-project-scaffold/scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app
 ```
 
 Versioned Codex skills [react-coding-standard](skills/react-coding-standard/SKILL.md)
