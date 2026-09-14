@@ -42,3 +42,6 @@ The core also contains framework-neutral reactive services for dashboard work:
 
 UI component adapters, router adapters and application-specific gateways remain
 separate packages so the core stays portable.
+
+For product directory responsibilities, service/Hook ownership, API placement and
+SCSS skin rules, see [React 工程职责与皮肤规范](docs/REACT_ENGINEERING_STANDARD.md).
