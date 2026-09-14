@@ -2,6 +2,22 @@
 
 这是产品工程的推荐骨架，不绑定 Vite、Next.js、React Router、TanStack Router、Material、Ant Design 或 `@richie696/*`。选择构建器/路由器后保留职责边界即可。只创建当前功能需要的目录；一个小产品不需要把示例树中的所有文件提前建空。
 
+## 自动生成的最小工程
+
+仓库维护的 `scripts/create_react_project.py` + `templates/react-spa` 是本规范的一个**具体实现 profile**：Vite SPA、React 19、TypeScript 6、严格类型、Hooks lint、SCSS 语义 token 与浅/深色皮肤。它不代表所有 React 项目必须使用 Vite；Next.js、SSR、React Native 应按平台入口另建 profile，不套用客户端 DOM 模板。模板仅创建已有实际用途的 `app`、`core`、`features/home` 文件，不预建空的 `shared`、路由、API、store 或测试目录，也不依赖 `@richie696/*`。
+
+```bash
+python3 scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app --dry-run
+python3 scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app
+cd /absolute/path/my-react-app
+npm install
+npm run typecheck
+npm run lint
+npm run build
+```
+
+目标目录必须不存在，父目录必须已存在；脚本拒绝覆盖，预览模式不落盘，不自动安装依赖或初始化 Git。Node.js 需满足模板 `package.json` 的 `engines`。生成后把依赖版本锁入新项目自己的 lockfile，再开始业务开发。个人 Codex Skill `react-project-scaffold` 负责安全调用脚本；编码规范由 `react-coding-standard` 负责，不将本仓库特有 API 强加给新项目。
+
 ## 1. 顶层结构
 
 ```text

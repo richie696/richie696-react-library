@@ -49,6 +49,18 @@ Reusable React application standards are organized under [React 工程规范](do
 - [编码规范](docs/REACT_CODING_STANDARD.md)
 - [项目骨架与 SCSS 皮肤](docs/REACT_PROJECT_SKELETON.md)
 
+For a new minimal Vite SPA, preview and generate the maintained skeleton:
+
+```bash
+python3 scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app --dry-run
+python3 scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app
+```
+
+Versioned Codex skills [react-coding-standard](skills/react-coding-standard/SKILL.md)
+and [react-project-scaffold](skills/react-project-scaffold/SKILL.md) apply these
+standards to existing code and new-project generation respectively. Install them
+under your personal Codex skills directory to make them discoverable across projects.
+
 The separate [foundation API guide](docs/RICHIE_FOUNDATION_USAGE.md) maps this
 repository's published APIs to application responsibilities. Product-specific
 flows and visual values belong in each consuming application.
