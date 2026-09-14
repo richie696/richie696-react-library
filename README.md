@@ -30,7 +30,7 @@ npm run typecheck
 npm test
 ```
 
-The core also contains framework-neutral reactive services for dashboard work:
+The core also contains framework-neutral reactive services for application state and live data:
 
 - `StateStore` and `ReadonlyStore` provide immutable external-store snapshots.
 - `ObservableResource` models one cancellable async resource with idle/loading/
@@ -43,5 +43,12 @@ The core also contains framework-neutral reactive services for dashboard work:
 UI component adapters, router adapters and application-specific gateways remain
 separate packages so the core stays portable.
 
-For product directory responsibilities, service/Hook ownership, API placement and
-SCSS skin rules, see [React 工程职责与皮肤规范](docs/REACT_ENGINEERING_STANDARD.md).
+Reusable React application standards are organized under [React 工程规范](docs/REACT_ENGINEERING_STANDARD.md):
+
+- [UI/UE 设计](docs/REACT_UI_UX_STANDARD.md)
+- [编码规范](docs/REACT_CODING_STANDARD.md)
+- [项目骨架与 SCSS 皮肤](docs/REACT_PROJECT_SKELETON.md)
+
+The separate [foundation API guide](docs/RICHIE_FOUNDATION_USAGE.md) maps this
+repository's published APIs to application responsibilities. Product-specific
+flows and visual values belong in each consuming application.
