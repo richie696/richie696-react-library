@@ -19,9 +19,9 @@ Native、Next.js、Remix 或 Node-side rendering 代码复用。`framework-react
 | Angular 底座能力 | React 版本 | 设计取舍 |
 | --- | --- | --- |
 | `AbstractService` | `HttpClient` / `GatewayClient` + `useRequest` | 请求编排与视图生命周期分离；核心服务不继承 React 组件 |
-| `Url` / `Method` | `Url` / `HttpMethod` | 类型化路径、查询和方法 |
+| `Url` / `Method` | `Url` / `HttpMethod` + `defineUrlCatalog` | 不可变 endpoint 描述、类型化路径/查询/方法，不使用全局动态 URL |
 | `ApiResult` / `AppError` | 同名协议模型 | 统一错误分类，不泄露原始异常 |
-| `EventManager` | `EventBus` + `useEvent` | 返回 unsubscribe，observer 异常隔离 |
+| `EventManager` | RxJS-backed `EventBus` + `useEvent` | RxJS 只在 core 内部，公共面仍是 typed facade，observer 异常隔离 |
 | `LocalStorage` | `StorageAdapter` / `BrowserStorage` | 可注入，SSR 默认使用 `MemoryStorage` |
 | SSE parser | `parseEventStream` | AsyncGenerator，适合 React 事件流 |
 | Java 风格锁工具 | `AsyncMutex` / `SingleFlight` | 只保留 JS 异步模型真正需要的同步原语 |

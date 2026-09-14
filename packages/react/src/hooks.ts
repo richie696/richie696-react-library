@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppError, type RequestOptions, type Url } from '@richie696/react-framework';
-import { useReactFramework } from './provider.js';
+import { useReactFramework, type FrameworkEvents } from './provider.js';
 
 export interface RequestState<T> { readonly data?: T; readonly error?: AppError; readonly loading: boolean; }
 
@@ -18,7 +18,7 @@ export function useRequest<T>(url: Url | string, body?: unknown, options?: Reque
   return { ...state, execute, cancel };
 }
 
-export function useEvent<K extends string, T>(name: K, handler: (event: T) => void): void {
+export function useEvent<K extends keyof FrameworkEvents>(name: K, handler: (event: FrameworkEvents[K]) => void): void {
   const { events } = useReactFramework();
-  useEffect(() => events.on(name, handler as (event: unknown) => void), [events, handler, name]);
+  useEffect(() => events.on(name, handler), [events, handler, name]);
 }

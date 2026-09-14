@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { AppErrorKind, EventBus, HttpClient, HttpMethod, MemoryStorage, SingleFlight, Translator, Url, sha256Hex } from '../packages/framework/dist/index.js';
+import { AppErrorKind, EventBus, HttpClient, HttpMethod, MemoryStorage, SingleFlight, Translator, Url, defineUrlCatalog, sha256Hex } from '../packages/framework/dist/index.js';
 
 test('Url resolves path parameters and query values without magic URL strings', () => {
   const url = new Url('/users/{id}', { method: HttpMethod.GET });
   assert.equal(url.resolve(['a/b'], { query: { page: 2, active: true, omitted: undefined } }), '/users/a%2Fb?page=2&active=true');
   assert.equal(url.method, HttpMethod.GET);
+});
+
+test('defineUrlCatalog freezes endpoint metadata for reuse', () => {
+  const endpoints = defineUrlCatalog({ users: new Url('/users', { method: HttpMethod.GET }) });
+  assert.equal(Object.isFrozen(endpoints), true);
+  assert.equal(endpoints.users.method, HttpMethod.GET);
 });
 
 test('EventBus isolates observer failures and supports unsubscribe', () => {
