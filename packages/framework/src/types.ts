@@ -13,5 +13,31 @@ export interface Page<T> { readonly current: number; readonly pages: number; rea
 
 export interface RequestOptions extends RequestInit {
   readonly query?: Readonly<Record<string, string | number | boolean | null | undefined>>;
-  readonly timeoutMs?: number; readonly parseEnvelope?: boolean;
+  readonly pathParams?: readonly (string | number)[];
+  readonly timeoutMs?: number;
+  readonly parseEnvelope?: boolean;
+  readonly idempotencyKey?: string;
+  readonly requestId?: string;
+  readonly skipManagedHeaders?: boolean;
+}
+
+export interface HttpClientConfig {
+  readonly baseUrl?: string;
+  readonly clientId?: string;
+  readonly duplicateSubmitTimeWindowMs?: number;
+  readonly showLoading?: boolean;
+  readonly maxRetries?: number;
+  readonly retryIntervalMs?: number;
+  readonly timeoutMs?: number;
+  readonly enableHeaderAutoManagement?: boolean;
+  readonly headerStorageKey?: string;
+  readonly managedResponseHeaders?: readonly string[];
+  readonly persistManagedHeaders?: boolean;
+  readonly managedHeadersTtlMs?: number;
+  readonly sendHardwareFingerprint?: boolean;
+  readonly cryptoExchangePath?: string;
+  readonly protocolVersion?: string;
+  readonly storage?: import('./storage.js').StorageAdapter;
+  readonly onLoadingChange?: (active: boolean) => void;
+  readonly onUnauthorized?: (returnTo?: string) => void | Promise<void>;
 }

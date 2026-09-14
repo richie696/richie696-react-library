@@ -1,16 +1,116 @@
+import { DuplicateRequestGuard } from './duplicate.js';
 import { AppError, AppErrorKind } from './errors.js';
+import { ManagedHeadersStore } from './headers.js';
+import { DeviceIdentity } from './identity.js';
+import { parseEventStream, type ServerSentEventMessage } from './sse.js';
+import { BrowserStorage, MemoryStorage } from './storage.js';
+import { HttpMethod, type ApiResult, type HttpClientConfig, type RequestOptions } from './types.js';
 import { Url } from './url.js';
-import type { ApiResult, RequestOptions } from './types.js';
+import { EccCryptoSession } from './crypto.js';
+
 export type RequestInterceptor = (request: Request) => Request | Promise<Request>;
 export type ResponseInterceptor = (response: Response) => Response | Promise<Response>;
-export interface HttpClientOptions { readonly baseUrl?: string; readonly fetch?: typeof fetch; readonly requestInterceptors?: readonly RequestInterceptor[]; readonly responseInterceptors?: readonly ResponseInterceptor[]; readonly defaultTimeoutMs?: number; }
+export interface StreamOptions extends RequestOptions { readonly intent?: string; readonly parseData?: (data: unknown, event: ServerSentEventMessage<unknown>) => unknown; }
+export interface HttpClientOptions extends HttpClientConfig { readonly fetch?: typeof fetch; readonly requestInterceptors?: readonly RequestInterceptor[]; readonly responseInterceptors?: readonly ResponseInterceptor[]; readonly defaultTimeoutMs?: number; }
+
+const RETRYABLE_METHODS = new Set([HttpMethod.GET, HttpMethod.HEAD, HttpMethod.OPTIONS]);
+const RETRYABLE_STATUSES = new Set([408, 425, 429]);
+const DEFAULT_HEADERS = ['x-rd-request-apitoken'];
+const MAX_RETRY_DELAY_MS = 30_000;
+
 export class HttpClient {
-  private readonly baseUrl: string; private readonly fetcher: typeof fetch; private readonly requestInterceptors: readonly RequestInterceptor[]; private readonly responseInterceptors: readonly ResponseInterceptor[]; private readonly defaultTimeoutMs: number;
-  constructor(options: HttpClientOptions = {}) { this.baseUrl = options.baseUrl ?? ''; this.fetcher = options.fetch ?? globalThis.fetch.bind(globalThis); this.requestInterceptors = options.requestInterceptors ?? []; this.responseInterceptors = options.responseInterceptors ?? []; this.defaultTimeoutMs = options.defaultTimeoutMs ?? 30_000; }
-  async request<T>(url: Url | string, body?: unknown, options: RequestOptions = {}): Promise<T> {
-    const endpoint = typeof url === 'string' ? url : url.resolve([], options); const requestUrl = new URL(endpoint, this.baseUrl || globalThis.location?.origin).toString(); const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? this.defaultTimeoutMs); const headers = new Headers(options.headers); if (body !== undefined && !headers.has('content-type')) headers.set('content-type', 'application/json'); const request = new Request(requestUrl, { ...options, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: options.signal ?? controller.signal });
-    try { let prepared = request; for (const interceptor of this.requestInterceptors) prepared = await interceptor(prepared); let response = await this.fetcher(prepared); for (const interceptor of this.responseInterceptors) response = await interceptor(response); if (!response.ok) throw this.httpError(response); const payload: unknown = response.status === 204 ? undefined : await response.json(); if (options.parseEnvelope === false) return payload as T; return this.unwrap<T>(payload); } catch (error) { if (error instanceof AppError) throw error; throw AppError.fromUnknown(error); } finally { clearTimeout(timeout); }
+  private config: Required<Pick<HttpClientConfig, 'baseUrl' | 'clientId' | 'duplicateSubmitTimeWindowMs' | 'showLoading' | 'maxRetries' | 'retryIntervalMs' | 'timeoutMs' | 'enableHeaderAutoManagement' | 'headerStorageKey' | 'persistManagedHeaders' | 'managedHeadersTtlMs' | 'sendHardwareFingerprint' | 'cryptoExchangePath' | 'protocolVersion'>> & HttpClientConfig;
+  private readonly fetcher: typeof fetch;
+  private readonly requestInterceptors: readonly RequestInterceptor[];
+  private readonly responseInterceptors: readonly ResponseInterceptor[];
+  private readonly duplicateGuard: DuplicateRequestGuard;
+  private readonly managedHeaders: ManagedHeadersStore;
+  private readonly deviceIdentity: DeviceIdentity;
+  private readonly cryptoSession = new EccCryptoSession();
+  private loadingCount = 0;
+
+  constructor(options: HttpClientOptions = {}) {
+    const storage = options.storage ?? (typeof window !== 'undefined' ? new BrowserStorage() : new MemoryStorage());
+    this.config = { ...options, baseUrl: options.baseUrl ?? '', clientId: options.clientId ?? createClientId(), duplicateSubmitTimeWindowMs: options.duplicateSubmitTimeWindowMs ?? 3_000, showLoading: options.showLoading ?? true, maxRetries: options.maxRetries ?? 3, retryIntervalMs: options.retryIntervalMs ?? 1_000, timeoutMs: options.timeoutMs ?? options.defaultTimeoutMs ?? 30_000, enableHeaderAutoManagement: options.enableHeaderAutoManagement ?? true, headerStorageKey: options.headerStorageKey ?? 'http_headers', persistManagedHeaders: options.persistManagedHeaders ?? true, managedHeadersTtlMs: options.managedHeadersTtlMs ?? 5 * 60 * 1_000, sendHardwareFingerprint: options.sendHardwareFingerprint ?? false, cryptoExchangePath: options.cryptoExchangePath ?? '/api/crypto/exchange', protocolVersion: options.protocolVersion ?? '1' };
+    this.fetcher = options.fetch ?? globalThis.fetch.bind(globalThis);
+    this.requestInterceptors = options.requestInterceptors ?? [];
+    this.responseInterceptors = options.responseInterceptors ?? [];
+    this.duplicateGuard = new DuplicateRequestGuard(this.config.duplicateSubmitTimeWindowMs);
+    this.managedHeaders = new ManagedHeadersStore({ storage, storageKey: this.config.headerStorageKey, persist: this.config.persistManagedHeaders, ttlMs: this.config.managedHeadersTtlMs, allowlist: options.managedResponseHeaders ?? DEFAULT_HEADERS });
+    this.deviceIdentity = new DeviceIdentity(storage);
+    void this.managedHeaders.load();
   }
-  private unwrap<T>(payload: unknown): T { if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) { const result = payload as ApiResult<T>; if (!result.success) throw new AppError(AppErrorKind.PROTOCOL, result.message, { code: result.code, requestId: result.requestId }); return result.data; } return payload as T; }
-  private httpError(response: Response): AppError { const kind = response.status === 401 ? AppErrorKind.UNAUTHORIZED : response.status === 403 ? AppErrorKind.FORBIDDEN : response.status === 429 ? AppErrorKind.RATE_LIMITED : response.status >= 500 ? AppErrorKind.SERVER : AppErrorKind.PROTOCOL; const retryAfter = Number(response.headers.get('retry-after')); return new AppError(kind, `HTTP request failed with status ${response.status}`, { status: response.status, retryAfterMs: Number.isFinite(retryAfter) ? retryAfter * 1000 : undefined }); }
+
+  async request<T>(url: Url | string, body?: unknown, options: RequestOptions = {}): Promise<ApiResult<T>> {
+    const endpoint = this.resolveEndpoint(url, body, options);
+    const method = this.resolveMethod(url, options);
+    const duplicateKey = url instanceof Url && url.needDuplicateCheck ? await this.duplicateGuard.key(endpoint, method, body, this.currentUserId()) : undefined;
+    if (duplicateKey && this.duplicateGuard.isDuplicate(duplicateKey)) throw new AppError(AppErrorKind.DUPLICATE, 'Duplicate request rejected');
+    if (duplicateKey) this.duplicateGuard.record(duplicateKey);
+    return this.executeWithRetry<T>(endpoint, method, body, url, options);
+  }
+
+  async requestData<T>(url: Url | string, body?: unknown, options: RequestOptions = {}): Promise<T> { return (await this.request<T>(url, body, options)).data; }
+
+  async *requestStream<T>(url: Url | string, body?: unknown, options: StreamOptions = {}): AsyncGenerator<T> {
+    const endpoint = this.resolveEndpoint(url, body, options); const method = this.resolveMethod(url, options); const controller = new AbortController(); const detach = connectAbort(options.signal, controller); this.setLoading(true);
+    try {
+      const headers = await this.prepareHeaders(options, true); if (!headers.has('accept')) headers.set('accept', 'text/event-stream'); if (options.intent) headers.set('x-rydeen-agent-intent', options.intent);
+      const request = await this.applyRequestInterceptors(new Request(endpoint, { ...options, method, headers, body: encodeBody(methodAllowsBody(method) ? body : undefined, headers), signal: controller.signal }));
+      let response = await this.fetcher(request); response = await this.applyResponseInterceptors(response); this.managedHeaders.capture(response.headers); if (!response.ok) throw await this.httpError(response, options.requestId);
+      for await (const event of parseEventStream<unknown>(response, controller.signal)) {
+        if (event.data && typeof event.data === 'object' && 'kind' in event.data) { const envelope = event.data as { kind?: unknown; error?: unknown }; if (envelope.kind === 'done') return; if (envelope.kind === 'error') throw new AppError(AppErrorKind.PROTOCOL, 'The event stream reported an error', { responseBody: envelope.error }); }
+        yield (options.parseData ? options.parseData(event.data, event) : event.data) as T;
+      }
+    } catch (error) { throw AppError.fromUnknown(error); } finally { detach(); controller.abort(); this.setLoading(false); }
+  }
+
+  updateConfig(config: Partial<HttpClientConfig>): void { this.config = { ...this.config, ...config }; if (config.duplicateSubmitTimeWindowMs !== undefined) this.duplicateGuard.updateTimeWindow(config.duplicateSubmitTimeWindowMs); }
+  async initializeEncryption(): Promise<void> { await this.cryptoSession.exchange(this.config.baseUrl, this.config.clientId, this.config.cryptoExchangePath, this.config.protocolVersion, this.fetcher); }
+  getManagedHeader(name: string): string | null { return this.managedHeaders.get(name); }
+  clearManagedHeaders(): void { this.managedHeaders.clear(); }
+  get loading(): boolean { return this.loadingCount > 0; }
+  cleanup(): void { this.cryptoSession.clear(); this.duplicateGuard.clearAll(); this.managedHeaders.clear(); }
+
+  private async executeWithRetry<T>(endpoint: string, method: HttpMethod, body: unknown, url: Url | string, options: RequestOptions): Promise<ApiResult<T>> {
+    const canRetry = RETRYABLE_METHODS.has(method) || Boolean(options.idempotencyKey); const attempts = canRetry ? Math.max(0, this.config.maxRetries) + 1 : 1; let lastError: AppError | undefined; let rehandshaken = false;
+    for (let attempt = 0; attempt < attempts; attempt += 1) { try { return await this.executeOnce<T>(endpoint, method, body, url, options); } catch (error) { lastError = AppError.fromUnknown(error); if (!rehandshaken && url instanceof Url && url.needEncryption && lastError.status === 423 && isRecord(lastError.responseBody) && typeof lastError.responseBody.keyId === 'string' && typeof lastError.responseBody.gatewayPublicKey === 'string') { await this.cryptoSession.reHandshake(lastError.responseBody.keyId, lastError.responseBody.gatewayPublicKey); rehandshaken = true; attempt -= 1; continue; } if (attempt >= attempts - 1 || !this.isRetryable(lastError)) throw lastError; await delay(this.retryDelay(lastError, attempt), options.signal ?? undefined); } }
+    throw lastError ?? new AppError(AppErrorKind.UNKNOWN, 'Request failed');
+  }
+
+  private async executeOnce<T>(endpoint: string, method: HttpMethod, body: unknown, url: Url | string, options: RequestOptions): Promise<ApiResult<T>> {
+    const controller = new AbortController(); const timeoutMs = options.timeoutMs ?? this.config.timeoutMs; let timedOut = false; const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs); const detach = connectAbort(options.signal, controller); this.setLoading(true);
+    try {
+      let requestBody = body; const headers = await this.prepareHeaders(options);
+      if (url instanceof Url && url.needEncryption && requestBody !== undefined && method !== HttpMethod.GET) { if (!this.cryptoSession.initialized) await this.initializeEncryption(); requestBody = await this.cryptoSession.encrypt(serializeBody(requestBody)); headers.set('content-type', 'application/octet-stream'); headers.set('x-encrypted-data', 'body-v1'); if (this.cryptoSession.gatewayKeyId) headers.set('x-gateway-keyid', this.cryptoSession.gatewayKeyId); }
+      const request = await this.applyRequestInterceptors(new Request(endpoint, { ...options, method, headers, body: encodeBody(methodAllowsBody(method) ? requestBody : undefined, headers), signal: controller.signal })); let response = await this.fetcher(request); response = await this.applyResponseInterceptors(response); this.managedHeaders.capture(response.headers);
+      if (response.status === 401) await this.handleUnauthorized(options); if (!response.ok) throw await this.httpError(response, options.requestId); const payload = await readPayload(response); const decrypted = url instanceof Url && url.needEncryption && typeof payload === 'string' && response.headers.get('x-response-encrypted') === 'true' ? JSON.parse(await this.cryptoSession.decrypt(payload)) : payload; return this.toApiResult<T>(decrypted, response, options.parseEnvelope !== false);
+    } catch (error) { if (timedOut) throw new AppError(AppErrorKind.TIMEOUT, 'The request timed out', { cause: error }); if (options.signal?.aborted) throw new AppError(AppErrorKind.CANCELLED, 'The request was cancelled', { cause: error }); throw AppError.fromUnknown(error); } finally { clearTimeout(timeout); detach(); this.setLoading(false); }
+  }
+
+  private resolveEndpoint(url: Url | string, body: unknown, options: RequestOptions): string { const pathParams = options.pathParams ?? (Array.isArray(body) ? body as readonly (string | number)[] : []); const method = options.method ?? (url instanceof Url ? url.method : HttpMethod.GET); const query = Array.isArray(body) ? undefined : options.query ?? (method === HttpMethod.GET && isRecord(body) ? body as Readonly<Record<string, string | number | boolean | null | undefined>> : undefined); const endpoint = typeof url === 'string' ? appendQuery(url, query) : url.resolve(pathParams, { ...options, query }); const base = this.config.baseUrl || (typeof location !== 'undefined' ? location.origin : undefined); return new URL(endpoint, base).toString(); }
+  private resolveMethod(url: Url | string, options: RequestOptions): HttpMethod { return (options.method ?? (url instanceof Url ? url.method : HttpMethod.GET)) as HttpMethod; }
+  private async prepareHeaders(options: RequestOptions, stream = false): Promise<Headers> { const headers = new Headers(options.headers); if (!options.skipManagedHeaders && this.config.enableHeaderAutoManagement) this.managedHeaders.snapshot().forEach((value, name) => { if (!headers.has(name)) headers.set(name, value); }); if (!headers.has('x-client-timestamp')) headers.set('x-client-timestamp', String(Date.now())); if (!headers.has('x-gateway-protocol-version')) headers.set('x-gateway-protocol-version', this.config.protocolVersion); if (!headers.has('x-client-id')) headers.set('x-client-id', this.config.clientId); if (options.requestId && !headers.has('x-request-id')) headers.set('x-request-id', options.requestId); if (options.idempotencyKey && !headers.has('idempotency-key')) headers.set('idempotency-key', options.idempotencyKey); const userId = this.currentUserId(); if (userId && !headers.has('x-user-id')) headers.set('x-user-id', userId); if (this.config.sendHardwareFingerprint && !headers.has('x-device-id')) headers.set('x-device-id', await this.deviceIdentity.getOrCreate()); if (stream && !headers.has('cache-control')) headers.set('cache-control', 'no-cache'); return headers; }
+  private async applyRequestInterceptors(request: Request): Promise<Request> { let current = request; for (const interceptor of this.requestInterceptors) current = await interceptor(current); return current; }
+  private async applyResponseInterceptors(response: Response): Promise<Response> { let current = response; for (const interceptor of this.responseInterceptors) current = await interceptor(current); return current; }
+  private async httpError(response: Response, requestId?: string): Promise<AppError> { const responseBody = await readPayload(response); const retryAfterMs = parseRetryAfter(response.headers.get('retry-after')); const kind = response.status === 401 ? AppErrorKind.UNAUTHORIZED : response.status === 403 ? AppErrorKind.FORBIDDEN : response.status === 429 ? AppErrorKind.RATE_LIMITED : response.status >= 500 ? AppErrorKind.SERVER : AppErrorKind.PROTOCOL; const body = isRecord(responseBody) ? responseBody : undefined; return new AppError(kind, typeof body?.message === 'string' ? body.message : `HTTP request failed with status ${response.status}`, { status: response.status, code: typeof body?.code === 'string' ? body.code : undefined, requestId: typeof body?.requestId === 'string' ? body.requestId : requestId, traceId: typeof body?.traceId === 'string' ? body.traceId : response.headers.get('x-trace-id') ?? undefined, retryAfterMs, responseBody }); }
+  private toApiResult<T>(payload: unknown, response: Response, parseEnvelope: boolean): ApiResult<T> { if (parseEnvelope && isRecord(payload) && typeof payload.success === 'boolean' && 'data' in payload) { if (!payload.success) throw new AppError(AppErrorKind.PROTOCOL, typeof payload.message === 'string' ? payload.message : 'The server returned an unsuccessful result', { code: typeof payload.code === 'string' ? payload.code : undefined, requestId: typeof payload.requestId === 'string' ? payload.requestId : undefined, responseBody: payload }); return payload as unknown as ApiResult<T>; } return { success: true, data: payload as T, code: String(response.status), message: response.statusText || 'OK', requestId: response.headers.get('x-request-id') ?? undefined }; }
+  private isRetryable(error: AppError): boolean { return error.kind === AppErrorKind.NETWORK || error.kind === AppErrorKind.TIMEOUT || error.kind === AppErrorKind.RATE_LIMITED || error.kind === AppErrorKind.SERVER || (error.status !== undefined && RETRYABLE_STATUSES.has(error.status)); }
+  private retryDelay(error: AppError, attempt: number): number { return Math.min(MAX_RETRY_DELAY_MS, error.retryAfterMs ?? this.config.retryIntervalMs * (2 ** attempt)); }
+  private currentUserId(): string | null { return typeof localStorage !== 'undefined' ? localStorage.getItem('user_id') : null; }
+  private async handleUnauthorized(options: RequestOptions): Promise<void> { this.clearManagedHeaders(); await this.config.onUnauthorized?.(options.requestId); }
+  private setLoading(active: boolean): void { if (!this.config.showLoading) return; this.loadingCount = Math.max(0, this.loadingCount + (active ? 1 : -1)); this.config.onLoadingChange?.(this.loadingCount > 0); }
 }
+
+export class GatewayClient extends HttpClient {}
+
+function createClientId(): string { return globalThis.crypto?.randomUUID?.() ? `client_${globalThis.crypto.randomUUID()}` : `client_${Date.now()}_${Math.random().toString(16).slice(2)}`; }
+function isRecord(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+function serializeBody(value: unknown): string { return typeof value === 'string' ? value : JSON.stringify(value); }
+function encodeBody(body: unknown, headers: Headers): BodyInit | undefined { if (body === undefined || body === null) return undefined; if (typeof body === 'string' || body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof URLSearchParams) return body; if (!headers.has('content-type')) headers.set('content-type', 'application/json'); return JSON.stringify(body); }
+function methodAllowsBody(method: HttpMethod): boolean { return method !== HttpMethod.GET && method !== HttpMethod.HEAD && method !== HttpMethod.OPTIONS; }
+async function readPayload(response: Response): Promise<unknown> { if (response.status === 204) return undefined; const text = await response.text(); if (!text) return undefined; try { return JSON.parse(text) as unknown; } catch { return text; } }
+function parseRetryAfter(value: string | null): number | undefined { if (!value) return undefined; const seconds = Number(value); if (Number.isFinite(seconds)) return Math.min(MAX_RETRY_DELAY_MS, Math.max(0, seconds * 1_000)); const date = Date.parse(value); return Number.isFinite(date) ? Math.min(MAX_RETRY_DELAY_MS, Math.max(0, date - Date.now())) : undefined; }
+function delay(milliseconds: number, signal?: AbortSignal): Promise<void> { return new Promise((resolve, reject) => { if (signal?.aborted) { reject(new AppError(AppErrorKind.CANCELLED, 'The request was cancelled')); return; } const timer = setTimeout(resolve, milliseconds); signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new AppError(AppErrorKind.CANCELLED, 'The request was cancelled')); }, { once: true }); }); }
+function connectAbort(source: AbortSignal | null | undefined, target: AbortController): () => void { if (!source) return () => undefined; const abort = () => target.abort(source.reason); if (source.aborted) abort(); else source.addEventListener('abort', abort, { once: true }); return () => source.removeEventListener('abort', abort); }
+function appendQuery(path: string, query: RequestOptions['query']): string { if (!query) return path; const separator = path.includes('?') ? '&' : '?'; const search = new URLSearchParams(); for (const [key, value] of Object.entries(query)) if (value !== null && value !== undefined) search.set(key, String(value)); const encoded = search.toString(); return encoded ? `${path}${separator}${encoded}` : path; }

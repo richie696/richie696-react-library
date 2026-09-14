@@ -1,5 +1,6 @@
 export * from './concurrency.js';
 export * from './crypto.js';
+export * from './duplicate.js';
 export * from './errors.js';
 export * from './events.js';
 export * from './headers.js';

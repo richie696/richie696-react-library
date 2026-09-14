@@ -11,7 +11,7 @@ export function useRequest<T>(url: Url | string, body?: unknown, options?: Reque
   const cancel = useCallback(() => controller.current?.abort(), []);
   const execute = useCallback(async (): Promise<T | undefined> => {
     cancel(); controller.current = new AbortController(); setState({ loading: true });
-    try { const result = await client.request<T>(url, body, { ...options, signal: controller.current.signal }); setState({ data: result, loading: false }); return result; }
+    try { const result = await client.requestData<T>(url, body, { ...options, signal: controller.current.signal }); setState({ data: result, loading: false }); return result; }
     catch (error) { const normalized = AppError.fromUnknown(error); if (normalized.kind !== 'cancelled') setState({ error: normalized, loading: false }); return undefined; }
   }, [body, cancel, client, options, url]);
   useEffect(() => () => controller.current?.abort(), []);
