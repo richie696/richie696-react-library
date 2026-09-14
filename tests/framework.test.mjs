@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { AppErrorKind, EventBus, HttpClient, HttpMethod, MemoryStorage, SingleFlight, Translator, Url, defineUrlCatalog, sha256Hex } from '../packages/framework/dist/index.js';
+import { AppErrorKind, EventBus, HttpClient, HttpMethod, MemoryStorage, ObservableResource, PollingStore, ResourceStatus, SingleFlight, StateStore, TimeSeriesStore, Translator, Url, defineUrlCatalog, sha256Hex } from '../packages/framework/dist/index.js';
 
 test('Url resolves path parameters and query values without magic URL strings', () => {
   const url = new Url('/users/{id}', { method: HttpMethod.GET });
@@ -89,4 +89,72 @@ test('HttpClient prevents concurrent duplicate submissions and parses stream com
   const values = [];
   for await (const value of streamClient.requestStream('/events')) values.push(value);
   assert.deepEqual(values, [{ value: 1 }]);
+});
+
+test('StateStore and TimeSeriesStore expose immutable snapshots for React external stores', () => {
+  const initial = { value: 0 };
+  const store = new StateStore(initial);
+  const snapshots = [];
+  const unsubscribe = store.subscribe(() => snapshots.push(store.getSnapshot()));
+  const next = { value: 1 };
+  store.set(next);
+  store.set(next);
+  unsubscribe();
+  assert.deepEqual(snapshots, [{ value: 0 }, { value: 1 }]);
+
+  const series = new TimeSeriesStore(2);
+  series.append(1, 100);
+  series.append(2, 200);
+  series.append(3, 300);
+  assert.deepEqual(series.getSnapshot(), [{ value: 2, at: 200 }, { value: 3, at: 300 }]);
+});
+
+test('ObservableResource and PollingStore prevent stale resource updates and overlapping polls', async () => {
+  const resource = new ObservableResource();
+  const loaded = await resource.load(async () => 'ready');
+  assert.equal(loaded, 'ready');
+  assert.equal(resource.getSnapshot().status, ResourceStatus.SUCCESS);
+  assert.equal(resource.getSnapshot().data, 'ready');
+
+  let active = 0;
+  let maximumActive = 0;
+  let calls = 0;
+  const polling = new PollingStore();
+  polling.start(async () => {
+    active += 1;
+    maximumActive = Math.max(maximumActive, active);
+    calls += 1;
+    await new Promise((resolve) => setTimeout(resolve, 12));
+    active -= 1;
+    return calls;
+  }, { intervalMs: 2, immediate: true });
+  await new Promise((resolve) => setTimeout(resolve, 32));
+  polling.stop();
+  assert.equal(maximumActive, 1);
+  assert.equal(polling.getSnapshot().status, ResourceStatus.SUCCESS);
+  assert.ok(calls >= 2);
+});
+
+test('ObservableResource cancels the previous load before accepting a newer result', async () => {
+  const resource = new ObservableResource();
+  const first = resource.load(() => new Promise(() => undefined));
+  const second = resource.load(async () => 'latest');
+  await assert.rejects(first, (error) => error.kind === AppErrorKind.CANCELLED);
+  assert.equal(await second, 'latest');
+  assert.deepEqual(resource.getSnapshot().data, 'latest');
+});
+
+test('ObservableResource classifies timeout and empty loaders as stable errors', async () => {
+  const timed = new ObservableResource();
+  await assert.rejects(timed.load(() => new Promise(() => undefined), { timeoutMs: 1 }), (error) => error.kind === AppErrorKind.TIMEOUT);
+
+  const empty = new ObservableResource();
+  async function* noValues() { return; }
+  await assert.rejects(empty.load(noValues), (error) => error.kind === AppErrorKind.PROTOCOL);
+});
+
+test('PollingStore rejects unsafe timing configuration before creating a poll loop', () => {
+  const polling = new PollingStore();
+  assert.throws(() => polling.start(async () => true, { intervalMs: 0 }), RangeError);
+  assert.throws(() => polling.start(async () => true, { intervalMs: 100, retryCount: -1 }), RangeError);
 });

@@ -1,12 +1,12 @@
-import { DuplicateRequestGuard } from './duplicate.js';
-import { AppError, AppErrorKind } from './errors.js';
-import { ManagedHeadersStore } from './headers.js';
-import { DeviceIdentity } from './identity.js';
+import { EccCryptoSession } from '../foundation/crypto.js';
+import { DuplicateRequestGuard } from '../foundation/duplicate.js';
+import { AppError, AppErrorKind } from '../foundation/errors.js';
+import { ManagedHeadersStore } from '../foundation/headers.js';
+import { DeviceIdentity } from '../foundation/identity.js';
+import { BrowserStorage, MemoryStorage } from '../foundation/storage.js';
+import { HttpMethod, type ApiResult, type HttpClientConfig, type RequestOptions } from '../foundation/types.js';
+import { Url } from '../foundation/url.js';
 import { parseEventStream, type ServerSentEventMessage } from './sse.js';
-import { BrowserStorage, MemoryStorage } from './storage.js';
-import { HttpMethod, type ApiResult, type HttpClientConfig, type RequestOptions } from './types.js';
-import { Url } from './url.js';
-import { EccCryptoSession } from './crypto.js';
 
 export type RequestInterceptor = (request: Request) => Request | Promise<Request>;
 export type ResponseInterceptor = (response: Response) => Response | Promise<Response>;

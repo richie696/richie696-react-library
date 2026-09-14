@@ -1,4 +1,4 @@
-import type { I18nDictionary } from './types.js';
+import type { I18nDictionary } from '../foundation/types.js';
 
 export type TranslationValues = Readonly<Record<string, string | number>>;
 

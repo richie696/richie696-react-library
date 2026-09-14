@@ -45,8 +45,15 @@ export class AppError extends Error {
 
   static fromUnknown(error: unknown): AppError {
     if (error instanceof AppError) return error;
+    if (hasErrorName(error, TIMEOUT_ERROR_NAME)) return new AppError(AppErrorKind.TIMEOUT, 'The operation timed out', { cause: error });
     if (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') return new AppError(AppErrorKind.CANCELLED, 'The request was cancelled', { cause: error });
     if (error instanceof TypeError) return new AppError(AppErrorKind.NETWORK, 'The network request failed', { cause: error });
     return new AppError(AppErrorKind.UNKNOWN, 'An unexpected error occurred', { cause: error });
   }
+}
+
+const TIMEOUT_ERROR_NAME = 'TimeoutError';
+
+function hasErrorName(error: unknown, name: string): error is { readonly name: string } {
+  return typeof error === 'object' && error !== null && 'name' in error && error.name === name;
 }

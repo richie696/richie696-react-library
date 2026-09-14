@@ -1,4 +1,4 @@
-import { Observable, Subject, type Subscription } from 'rxjs';
+import { Subject, type Subscription } from 'rxjs';
 
 /**
  * Public, framework-neutral event facade. RxJS remains an implementation detail;
@@ -42,9 +42,6 @@ export class EventBus<Events extends object> implements EventStream<Events> {
     this.subscriptions.clear();
     this.subjects.clear();
   }
-
-  /** Internal escape hatch for framework adapters; RxJS is not part of the contract. */
-  observe<K extends keyof Events>(name: K): Observable<Events[K]> { return this.subjectFor(name).asObservable() as Observable<Events[K]>; }
 
   private subjectFor<K extends keyof Events>(name: K): Subject<unknown> {
     const existing = this.subjects.get(name);

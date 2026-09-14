@@ -19,7 +19,8 @@ idiomatic hooks and providers instead of Angular-style base classes.
 - TypeScript `6.x`
 - ESM packages with strict declarations
 - Native `fetch`, `AbortController`, Web Crypto and browser storage APIs
-- No runtime dependency in the core package
+- RxJS is an internal runtime dependency of the core reactive services; it is not
+  exposed in the public event/store contracts
 
 ## Development
 
@@ -29,5 +30,15 @@ npm run typecheck
 npm test
 ```
 
-This is the initial foundation slice. UI component adapters, router adapters and
-application-specific gateways will remain separate packages so the core stays portable.
+The core also contains framework-neutral reactive services for dashboard work:
+
+- `StateStore` and `ReadonlyStore` provide immutable external-store snapshots.
+- `ObservableResource` models one cancellable async resource with idle/loading/
+  success/error states and stale-result protection.
+- `PollingStore` provides bounded polling with timeout, retry and no-overlap
+  semantics; `TimeSeriesStore` keeps a bounded chart window.
+- The React package maps these contracts to `useSyncExternalStore`,
+  `useObservableResource`, `useOnlineStatus` and typed `useEvent` hooks.
+
+UI component adapters, router adapters and application-specific gateways remain
+separate packages so the core stays portable.
