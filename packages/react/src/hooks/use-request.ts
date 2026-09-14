@@ -2,10 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppError, type RequestOptions, type Url } from '@richie696/react-framework';
 import { useReactFramework } from '../context/provider.js';
 
+/** Render state returned by {@link useRequest}. */
 export interface RequestState<T> { readonly data?: T; readonly error?: AppError; readonly loading: boolean; }
 
+/** Reads the configured HTTP service. */
 export function useHttpClient() { return useReactFramework().http; }
 
+/** Executes a cancellable request while guarding against stale completions. */
 export function useRequest<T>(url: Url | string, body?: unknown, options?: RequestOptions): RequestState<T> & { readonly execute: () => Promise<T | undefined>; readonly cancel: () => void } {
   const client = useHttpClient();
   const controller = useRef<AbortController | undefined>(undefined);

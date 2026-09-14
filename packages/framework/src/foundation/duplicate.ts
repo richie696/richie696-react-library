@@ -1,27 +1,35 @@
 import { sha256Hex } from './crypto.js';
 
+/** Prevents repeated submissions of the same request within a time window. */
 export class DuplicateRequestGuard {
   private readonly requests = new Map<string, number>();
 
+  /** Creates a guard with the supplied suppression window. */
   constructor(private timeWindowMs = 3_000) {}
 
+  /** Creates a stable request fingerprint for the current time window. */
   async key(url: string, method: string, body: unknown, userId: string | null): Promise<string> {
     const window = Math.floor(Date.now() / this.timeWindowMs) * this.timeWindowMs;
     return sha256Hex(JSON.stringify({ url, method, body: stableSerialize(body), userId: userId ?? '', window }));
   }
 
+  /** Returns true when a fingerprint has been recorded recently. */
   isDuplicate(requestId: string): boolean {
     const timestamp = this.requests.get(requestId);
     return timestamp !== undefined && Date.now() - timestamp < this.timeWindowMs;
   }
 
+  /** Records a fingerprint and removes expired entries. */
   record(requestId: string): void {
     this.requests.set(requestId, Date.now());
     this.cleanup();
   }
 
+  /** Removes one recorded fingerprint. */
   clear(requestId: string): void { this.requests.delete(requestId); }
+  /** Removes all recorded fingerprints. */
   clearAll(): void { this.requests.clear(); }
+  /** Changes the deduplication window for future checks. */
   updateTimeWindow(timeWindowMs: number): void { this.timeWindowMs = timeWindowMs; }
 
   private cleanup(): void {

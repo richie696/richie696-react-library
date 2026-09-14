@@ -1,4 +1,6 @@
+/** Parsed server-sent event frame. */
 export interface ServerSentEventMessage<T = unknown> { readonly event: string; readonly data: T; readonly id?: string; }
+/** Parses a fetch response body into JSON-or-text SSE frames. */
 export async function* parseEventStream<T = unknown>(response: Response, signal?: AbortSignal): AsyncGenerator<ServerSentEventMessage<T>> {
   if (!response.body) throw new TypeError('Response does not contain an event stream');
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader(); let buffer = '';

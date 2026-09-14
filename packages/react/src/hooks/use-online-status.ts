@@ -8,4 +8,5 @@ const subscribe = (listener: () => void): (() => void) => {
 };
 const getSnapshot = (): boolean => typeof navigator === 'undefined' || navigator.onLine;
 
+/** Returns the browser online state with an SSR-safe fallback. */
 export function useOnlineStatus(): boolean { return useSyncExternalStore(subscribe, getSnapshot, () => true); }

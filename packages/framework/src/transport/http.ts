@@ -8,16 +8,35 @@ import { HttpMethod, type ApiResult, type HttpClientConfig, type RequestOptions 
 import { Url } from '../foundation/url.js';
 import { parseEventStream, type ServerSentEventMessage } from './sse.js';
 
+/** Intercepts and optionally replaces an outgoing request. */
 export type RequestInterceptor = (request: Request) => Request | Promise<Request>;
+/** Intercepts and optionally replaces an incoming response. */
 export type ResponseInterceptor = (response: Response) => Response | Promise<Response>;
-export interface StreamOptions extends RequestOptions { readonly intent?: string; readonly parseData?: (data: unknown, event: ServerSentEventMessage<unknown>) => unknown; }
-export interface HttpClientOptions extends HttpClientConfig { readonly fetch?: typeof fetch; readonly requestInterceptors?: readonly RequestInterceptor[]; readonly responseInterceptors?: readonly ResponseInterceptor[]; readonly defaultTimeoutMs?: number; }
+/** Options specific to server-sent event requests. */
+export interface StreamOptions extends RequestOptions {
+  /** Optional gateway intent header. */
+  readonly intent?: string;
+  /** Converts each parsed SSE payload before yielding it. */
+  readonly parseData?: (data: unknown, event: ServerSentEventMessage<unknown>) => unknown;
+}
+/** Construction options for the framework HTTP client. */
+export interface HttpClientOptions extends HttpClientConfig {
+  /** Fetch implementation used by the client. */
+  readonly fetch?: typeof fetch;
+  /** Ordered outgoing request interceptors. */
+  readonly requestInterceptors?: readonly RequestInterceptor[];
+  /** Ordered incoming response interceptors. */
+  readonly responseInterceptors?: readonly ResponseInterceptor[];
+  /** Legacy alias used when `timeoutMs` is not set. */
+  readonly defaultTimeoutMs?: number;
+}
 
 const RETRYABLE_METHODS = new Set([HttpMethod.GET, HttpMethod.HEAD, HttpMethod.OPTIONS]);
 const RETRYABLE_STATUSES = new Set([408, 425, 429]);
 const DEFAULT_HEADERS = ['x-rd-request-apitoken'];
 const MAX_RETRY_DELAY_MS = 30_000;
 
+/** Fetch-based HTTP service with retries, cancellation and cross-cutting policy hooks. */
 export class HttpClient {
   private config: Required<Pick<HttpClientConfig, 'baseUrl' | 'clientId' | 'duplicateSubmitTimeWindowMs' | 'showLoading' | 'maxRetries' | 'retryIntervalMs' | 'timeoutMs' | 'enableHeaderAutoManagement' | 'headerStorageKey' | 'persistManagedHeaders' | 'managedHeadersTtlMs' | 'sendHardwareFingerprint' | 'cryptoExchangePath' | 'protocolVersion'>> & HttpClientConfig;
   private readonly fetcher: typeof fetch;
@@ -29,6 +48,7 @@ export class HttpClient {
   private readonly cryptoSession = new EccCryptoSession();
   private loadingCount = 0;
 
+  /** Creates an HTTP client using standard host APIs and injectable adapters. */
   constructor(options: HttpClientOptions = {}) {
     const storage = options.storage ?? (typeof window !== 'undefined' ? new BrowserStorage() : new MemoryStorage());
     this.config = { ...options, baseUrl: options.baseUrl ?? '', clientId: options.clientId ?? createClientId(), duplicateSubmitTimeWindowMs: options.duplicateSubmitTimeWindowMs ?? 3_000, showLoading: options.showLoading ?? true, maxRetries: options.maxRetries ?? 3, retryIntervalMs: options.retryIntervalMs ?? 1_000, timeoutMs: options.timeoutMs ?? options.defaultTimeoutMs ?? 30_000, enableHeaderAutoManagement: options.enableHeaderAutoManagement ?? true, headerStorageKey: options.headerStorageKey ?? 'http_headers', persistManagedHeaders: options.persistManagedHeaders ?? true, managedHeadersTtlMs: options.managedHeadersTtlMs ?? 5 * 60 * 1_000, sendHardwareFingerprint: options.sendHardwareFingerprint ?? false, cryptoExchangePath: options.cryptoExchangePath ?? '/api/crypto/exchange', protocolVersion: options.protocolVersion ?? '1' };
@@ -41,6 +61,7 @@ export class HttpClient {
     void this.managedHeaders.load();
   }
 
+  /** Executes a request and returns the normalized API envelope. */
   async request<T>(url: Url | string, body?: unknown, options: RequestOptions = {}): Promise<ApiResult<T>> {
     const endpoint = this.resolveEndpoint(url, body, options);
     const method = this.resolveMethod(url, options);
@@ -50,8 +71,10 @@ export class HttpClient {
     return this.executeWithRetry<T>(endpoint, method, body, url, options);
   }
 
+  /** Executes a request and returns only its data payload. */
   async requestData<T>(url: Url | string, body?: unknown, options: RequestOptions = {}): Promise<T> { return (await this.request<T>(url, body, options)).data; }
 
+  /** Streams parsed SSE data frames until completion or cancellation. */
   async *requestStream<T>(url: Url | string, body?: unknown, options: StreamOptions = {}): AsyncGenerator<T> {
     const endpoint = this.resolveEndpoint(url, body, options); const method = this.resolveMethod(url, options); const controller = new AbortController(); const detach = connectAbort(options.signal, controller); this.setLoading(true);
     try {
@@ -65,11 +88,17 @@ export class HttpClient {
     } catch (error) { throw AppError.fromUnknown(error); } finally { detach(); controller.abort(); this.setLoading(false); }
   }
 
+  /** Applies mutable operational defaults to subsequent requests. */
   updateConfig(config: Partial<HttpClientConfig>): void { this.config = { ...this.config, ...config }; if (config.duplicateSubmitTimeWindowMs !== undefined) this.duplicateGuard.updateTimeWindow(config.duplicateSubmitTimeWindowMs); }
+  /** Performs the configured gateway key exchange for encrypted endpoints. */
   async initializeEncryption(): Promise<void> { await this.cryptoSession.exchange(this.config.baseUrl, this.config.clientId, this.config.cryptoExchangePath, this.config.protocolVersion, this.fetcher); }
+  /** Reads a cached allowlisted response header. */
   getManagedHeader(name: string): string | null { return this.managedHeaders.get(name); }
+  /** Clears all cached managed response headers. */
   clearManagedHeaders(): void { this.managedHeaders.clear(); }
+  /** Indicates whether one or more requests are currently in flight. */
   get loading(): boolean { return this.loadingCount > 0; }
+  /** Releases encryption, deduplication and managed-header state. */
   cleanup(): void { this.cryptoSession.clear(); this.duplicateGuard.clearAll(); this.managedHeaders.clear(); }
 
   private async executeWithRetry<T>(endpoint: string, method: HttpMethod, body: unknown, url: Url | string, options: RequestOptions): Promise<ApiResult<T>> {
@@ -102,6 +131,7 @@ export class HttpClient {
   private setLoading(active: boolean): void { if (!this.config.showLoading) return; this.loadingCount = Math.max(0, this.loadingCount + (active ? 1 : -1)); this.config.onLoadingChange?.(this.loadingCount > 0); }
 }
 
+/** Semantic alias for clients that communicate with an Atlas gateway. */
 export class GatewayClient extends HttpClient {}
 
 function createClientId(): string { return globalThis.crypto?.randomUUID?.() ? `client_${globalThis.crypto.randomUUID()}` : `client_${Date.now()}_${Math.random().toString(16).slice(2)}`; }

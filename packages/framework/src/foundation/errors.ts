@@ -1,3 +1,4 @@
+/** Stable categories used by framework services for error handling and UI state. */
 export enum AppErrorKind {
   NETWORK = 'network',
   TIMEOUT = 'timeout',
@@ -11,25 +12,42 @@ export enum AppErrorKind {
   UNKNOWN = 'unknown',
 }
 
+/** Optional transport and correlation metadata attached to an {@link AppError}. */
 export interface AppErrorDetails {
+  /** HTTP status associated with the failure. */
   readonly status?: number;
+  /** Stable server or client error code. */
   readonly code?: string;
+  /** Request correlation identifier. */
   readonly requestId?: string;
+  /** Server-advised retry delay in milliseconds. */
   readonly retryAfterMs?: number;
+  /** Sanitized response payload, when available. */
   readonly responseBody?: unknown;
+  /** Distributed trace identifier. */
   readonly traceId?: string;
+  /** Original cause retained for diagnostics. */
   readonly cause?: unknown;
 }
 
+/** Normalized application error that is safe to expose at a service boundary. */
 export class AppError extends Error {
+  /** Stable category used by callers for recovery and presentation. */
   readonly kind: AppErrorKind;
+  /** HTTP status when the error came from a response. */
   readonly status?: number;
+  /** Stable server or client code. */
   readonly code?: string;
+  /** Request correlation identifier. */
   readonly requestId?: string;
+  /** Server-advised retry delay in milliseconds. */
   readonly retryAfterMs?: number;
+  /** Sanitized response payload. */
   readonly responseBody?: unknown;
+  /** Distributed trace identifier. */
   readonly traceId?: string;
 
+  /** Creates an error with a stable kind and optional protocol metadata. */
   constructor(kind: AppErrorKind, message: string, details: AppErrorDetails = {}) {
     super(message);
     this.name = 'AppError';
@@ -43,6 +61,7 @@ export class AppError extends Error {
     if (details.cause !== undefined) this.cause = details.cause;
   }
 
+  /** Converts an arbitrary thrown value into an {@link AppError}. */
   static fromUnknown(error: unknown): AppError {
     if (error instanceof AppError) return error;
     if (hasErrorName(error, TIMEOUT_ERROR_NAME)) return new AppError(AppErrorKind.TIMEOUT, 'The operation timed out', { cause: error });
