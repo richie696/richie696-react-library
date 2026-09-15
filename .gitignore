@@ -3,3 +3,8 @@ dist/
 coverage/
 .DS_Store
 *.tsbuildinfo
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/.gitignore
+/.idea/modules.xml
+/.idea/richie696-react-library.iml
+/.idea/vcs.xml
