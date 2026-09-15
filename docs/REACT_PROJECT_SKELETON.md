@@ -10,10 +10,10 @@
 python3 skills/react-project-scaffold/scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app --dry-run
 python3 skills/react-project-scaffold/scripts/create_react_project.py --name my-react-app --output /absolute/path/my-react-app
 cd /absolute/path/my-react-app
-npm install
-npm run typecheck
-npm run lint
-npm run build
+pnpm install
+pnpm typecheck
+pnpm lint
+pnpm build
 ```
 
 目标目录必须不存在，父目录必须已存在；脚本拒绝覆盖，预览模式不落盘，不自动安装依赖或初始化 Git。Node.js 需满足模板 `package.json` 的 `engines`。生成后把依赖版本锁入新项目自己的 lockfile，再开始业务开发。个人 Codex Skill `react-project-scaffold` 负责安全调用脚本；编码规范由 `react-coding-standard` 负责，不将本仓库特有 API 强加给新项目。

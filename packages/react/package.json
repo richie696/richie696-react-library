@@ -1,8 +1,17 @@
 {
   "name": "@richie696/react-framework-react",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "description": "React 19 bindings for the Richie696 framework-neutral foundation.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/richie696/richie696-react-library.git",
+    "directory": "packages/react"
+  },
+  "bugs": { "url": "https://github.com/richie696/richie696-react-library/issues" },
+  "homepage": "https://github.com/richie696/richie696-react-library/tree/master/packages/react#readme",
+  "keywords": ["react", "react19", "hooks", "provider", "typescript"],
+  "publishConfig": { "access": "public" },
   "type": "module",
   "files": ["dist"],
   "main": "./dist/index.js",
@@ -10,6 +19,6 @@
   "types": "./dist/index.d.ts",
   "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "scripts": { "build": "tsc -p tsconfig.build.json", "typecheck": "tsc -p tsconfig.json --noEmit", "clean": "rm -rf dist" },
-  "dependencies": { "@richie696/react-framework": "0.1.0" },
+  "dependencies": { "@richie696/react-framework": "workspace:1.0.1" },
   "peerDependencies": { "react": ">=19.0.0", "react-dom": ">=19.0.0" }
 }

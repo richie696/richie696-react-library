@@ -8,6 +8,14 @@
 @richie696/react-framework-react  (Provider + hooks)
         ↓
 @richie696/react-framework        (无 React 的协议与基础能力)
+        ├── @richie696/react-framework-concurrency
+        └── @richie696/react-framework-security
+
+应用显式选择
+        ↓
+@richie696/react-framework-browser-fingerprint
+        ↓
+@richie696/react-framework-security
 ```
 
 `framework` 不依赖 React、路由器或 UI 组件库，因此可以被 React DOM、React
@@ -29,8 +37,10 @@ Native、Next.js、Remix 或 Node-side rendering 代码复用。`framework-react
 | 网络状态 | `useOnlineStatus` | 订阅浏览器 online/offline 事件，SSR 有稳定快照 |
 | `LocalStorage` | `StorageAdapter` / `BrowserStorage` | 可注入，SSR 默认使用 `MemoryStorage` |
 | SSE parser | `parseEventStream` | AsyncGenerator，适合 React 事件流 |
-| Java 风格锁工具 | `AsyncMutex` / `SingleFlight` | 只保留 JS 异步模型真正需要的同步原语 |
-| 设备标识 | `DeviceIdentity` | 只生成随机设备 ID，不默认采集指纹 |
+| Java 风格锁工具 | 独立 concurrency 包的 `ReentrantLock` / `ReadWriteLock` / `StampedLock` / `Condition` | 显式 owner token 表达异步任务所有权；只协调同一 JS runtime，不冒充跨 Worker/进程锁 |
+| 设备标识 | `DeviceIdentity` | Core 继续提供稳定随机设备 ID，不默认采集指纹 |
+| 硬件指纹 | 独立 browser-fingerprint 包 | 显式采集 Canvas/WebGL/屏幕等浏览器信号，可注入、可取消且 SSR 明确失败 |
+| HMAC/RSA 签名 | 独立 security 包的 `HmacSha256Signer` / `RsaPssSha256Signer` | 提供消息签名原语，不自行假设 HTTP 规范化、密钥签发或服务端验签协议 |
 | 国际化 | `Translator` | 字典、回退 locale 和插值均由应用注入 |
 | 摘要与请求头 | `sha256Hex` / `ManagedHeadersStore` | 使用 Web Crypto 和标准 Headers，不绑定 UI 或 HTTP provider |
 
@@ -47,6 +57,7 @@ Native、Next.js、Remix 或 Node-side rendering 代码复用。`framework-react
 - `ManagedHeadersStore` 只缓存显式白名单响应头，带 TTL 和可选 `StorageAdapter` 持久化；`Authorization`、Cookie 等敏感头永不自动保存。
 - `requestStream<T>()` 返回 `AsyncGenerator`，解析标准 SSE 多帧消息，支持 `kind=done/error` 控制帧、取消和自定义 data parser。
 - `Url.needEncryption` 启用 Web Crypto ECDH P-256/AES-GCM 握手与请求加密；密钥生命周期由 `initializeEncryption()` 和 `cleanup()` 管理。
+- `sendHardwareFingerprint` 显式开启指纹头注入；配置 `hardwareFingerprintProvider` 时发送其动态签名值，未配置时保留 `x-device-id` 的兼容行为。
 
 这些能力均可通过构造函数注入 `fetch`、存储、拦截器和回调进行替换，测试时不需要
 启动真实服务器。浏览器、SSR、React Native 等宿主只需提供相应的标准 API 适配。
@@ -71,8 +82,22 @@ React 绑定通过 `useSyncExternalStore` 读取这些快照，因此并发渲�
 React 负责。RxJS 仅作为内部实现工具，业务组件不需要导入 `Observable`、`Subject` 或
 operator；若未来更换响应式实现，以上 public contract 保持不变。
 
+## 并发与安全扩展边界
+
+- concurrency 包只协调同一 JavaScript runtime 中协作式异步任务，不使用
+  `SharedArrayBuffer`/`Atomics`，因此不能保护跨 Worker、跨标签页或跨进程资源。
+- 可重入锁必须传入 `LockOwner`；库不从调用栈猜测“当前线程”。读锁不能隐式升级为
+  写锁，避免把死锁藏在 API 内。
+- `Condition.wait()` 会释放完整持有计数，并在收到信号或取消后重新获取锁再返回；
+  `signal()`/`signalAll()` 要求调用方持有关联的独占锁。
+- browser-fingerprint 包依赖浏览器可观测信号，可能受权限、隐私设置、浏览器升级和
+  反指纹策略影响。应用必须显式启用并自行承担告知、同意、留存和服务端容错策略。
+- 前端 HMAC 密钥对最终用户不可保密，不能替代登录、令牌、WebAuthn 或服务端授权。
+  RSA-PSS 私钥只应由应用通过受控运行时能力提供，库不会把私钥写入存储。
+
 ## 版本策略
 
 - React peer 依赖从 `19.0.0` 起，当前开发基线为 `19.3.x`。
 - core 与 React bindings 独立版本，新增能力优先使用 additive API。
+- concurrency、security 与 browser-fingerprint 分别发布，业务按宿主和能力安装。
 - 浏览器存储、Web Crypto 和 `fetch` 都通过小接口隔离，方便未来 React Native 或 SSR 适配。

@@ -1,0 +1,5 @@
+packages:
+  - 'packages/*'
+
+# Always link the repository's own packages while developing the workspace.
+linkWorkspacePackages: true

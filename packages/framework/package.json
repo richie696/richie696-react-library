@@ -1,8 +1,17 @@
 {
   "name": "@richie696/react-framework",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "description": "Framework-neutral application foundation for Richie696 React projects.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/richie696/richie696-react-library.git",
+    "directory": "packages/framework"
+  },
+  "bugs": { "url": "https://github.com/richie696/richie696-react-library/issues" },
+  "homepage": "https://github.com/richie696/richie696-react-library/tree/master/packages/framework#readme",
+  "keywords": ["react", "framework", "fetch", "sse", "state-store", "foundation"],
+  "publishConfig": { "access": "public" },
   "type": "module",
   "files": ["dist"],
   "main": "./dist/index.js",
@@ -10,5 +19,9 @@
   "types": "./dist/index.d.ts",
   "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "scripts": { "build": "tsc -p tsconfig.build.json", "typecheck": "tsc -p tsconfig.json --noEmit", "clean": "rm -rf dist" },
-  "dependencies": { "rxjs": "^7.8.2" }
+  "dependencies": {
+    "@richie696/react-framework-concurrency": "workspace:1.0.1",
+    "@richie696/react-framework-security": "workspace:1.0.1",
+    "rxjs": "^7.8.2"
+  }
 }

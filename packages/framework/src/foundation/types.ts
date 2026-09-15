@@ -58,6 +58,11 @@ export interface RequestOptions extends RequestInit {
   readonly skipManagedHeaders?: boolean;
 }
 
+/** Supplies an opt-in asynchronous HTTP header value, such as a signed device fingerprint. */
+export interface RequestHeaderValueProvider {
+  getHeaderValue(signal?: AbortSignal): Promise<string>;
+}
+
 /** Cross-cutting defaults and callbacks for {@link HttpClient}. */
 export interface HttpClientConfig {
   /** Base URL used to resolve relative endpoint paths. */
@@ -84,8 +89,12 @@ export interface HttpClientConfig {
   readonly persistManagedHeaders?: boolean;
   /** Managed-header expiration in milliseconds. */
   readonly managedHeadersTtlMs?: number;
-  /** Sends a stable device identifier with requests. */
+  /** Sends a fingerprint provider value, or the legacy stable device ID when no provider is configured. */
   readonly sendHardwareFingerprint?: boolean;
+  /** Opt-in provider for a freshly generated hardware fingerprint header. */
+  readonly hardwareFingerprintProvider?: RequestHeaderValueProvider;
+  /** Header name used for the configured hardware fingerprint provider. */
+  readonly hardwareFingerprintHeaderName?: string;
   /** Relative or absolute key-exchange endpoint. */
   readonly cryptoExchangePath?: string;
   /** Gateway protocol version header value. */

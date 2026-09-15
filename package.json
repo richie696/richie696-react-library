@@ -1,16 +1,23 @@
 {
   "name": "richie696-react-library",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Framework-neutral and React-native foundations for Richie696 applications.",
   "license": "MIT",
   "author": "richie696",
-  "workspaces": ["packages/*"],
+  "packageManager": "pnpm@10.32.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/richie696/richie696-react-library.git"
+  },
+  "bugs": { "url": "https://github.com/richie696/richie696-react-library/issues" },
+  "homepage": "https://github.com/richie696/richie696-react-library#readme",
+  "keywords": ["react", "react19", "typescript", "framework", "hooks", "web-crypto", "concurrency"],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run build && node --test tests/*.test.mjs",
-    "typecheck": "npm run build && npm run typecheck --workspaces --if-present",
-    "clean": "npm run clean --workspaces --if-present"
+    "build": "pnpm -r --workspace-concurrency=1 run build",
+    "test": "pnpm run build && node --test tests/*.test.mjs",
+    "typecheck": "pnpm run build && pnpm -r --workspace-concurrency=1 run typecheck",
+    "clean": "pnpm -r --workspace-concurrency=1 run clean"
   },
   "devDependencies": {
     "@types/react": "^19.1.12",

@@ -1,0 +1,26 @@
+{
+  "name": "@richie696/react-framework-concurrency",
+  "version": "1.0.1",
+  "description": "Framework-neutral async concurrency primitives for Richie696 applications.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/richie696/richie696-react-library.git",
+    "directory": "packages/concurrency"
+  },
+  "bugs": { "url": "https://github.com/richie696/richie696-react-library/issues" },
+  "homepage": "https://github.com/richie696/richie696-react-library/tree/master/packages/concurrency#readme",
+  "keywords": ["async", "concurrency", "lock", "mutex", "typescript"],
+  "publishConfig": { "access": "public" },
+  "type": "module",
+  "files": ["dist"],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  }
+}

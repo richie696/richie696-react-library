@@ -1,0 +1,26 @@
+{
+  "name": "@richie696/react-framework-security",
+  "version": "1.0.1",
+  "description": "Framework-neutral Web Crypto encryption, digest and signature primitives for Richie696 applications.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/richie696/richie696-react-library.git",
+    "directory": "packages/security"
+  },
+  "bugs": { "url": "https://github.com/richie696/richie696-react-library/issues" },
+  "homepage": "https://github.com/richie696/richie696-react-library/tree/master/packages/security#readme",
+  "keywords": ["web-crypto", "sha256", "hmac", "rsa-pss", "aes-gcm"],
+  "publishConfig": { "access": "public" },
+  "type": "module",
+  "files": ["dist"],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  }
+}

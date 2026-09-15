@@ -1,6 +1,6 @@
 # Richie React 底座 API 使用指南
 
-这是 `@richie696/react-framework@0.1.0` 与 `@richie696/react-framework-react@0.1.0` 的使用边界，面向任意 React 产品。通用 UI/UE、编码和项目骨架要求分别见[规范索引](REACT_ENGINEERING_STANDARD.md)。升级依赖时先核对安装包的公开导出与行为；本指南不以 Angular 同名能力推断 React 契约。
+这是 `@richie696/react-framework@0.1.0` 及其 React、并发、安全和浏览器指纹扩展包的使用边界，面向任意 React 产品。通用 UI/UE、编码和项目骨架要求分别见[规范索引](REACT_ENGINEERING_STANDARD.md)。升级依赖时先核对安装包的公开导出与行为；本指南不以 Angular 同名能力推断 React 契约。
 
 基础包不依赖 React、路由器或 UI 组件库。React 包提供 Provider 与 Hooks；产品仍拥有 endpoint、DTO、业务规则、权限、主题、页面和设计系统。
 
@@ -24,10 +24,15 @@
 | `Translator`, `I18nDictionary` | `core/i18n` 与 feature 文案资源 | 翻译资源仍由产品提供；协议字段名不是界面标签 |
 | `StorageAdapter`, `BrowserStorage`, `MemoryStorage` | `core` 封装非敏感偏好；SSR/测试可换内存实现 | 不在组件散写存储，不存敏感凭证 |
 | `ManagedHeadersStore` | `core/api` 的受管响应头协议适配 | 仅受支持的白名单头；不要把任意认证信息当持久数据 |
-| `AsyncMutex`, `SingleFlight` | 具体临界区或共享一次加载 | 普通独立 Promise 不需要锁 |
+| `AsyncMutex`, `SingleFlight` | concurrency 包；具体临界区或共享一次加载 | 普通独立 Promise 不需要锁 |
+| `ReentrantLock`, `Condition` | concurrency 包；同一 async runtime 内需要显式重入或条件等待 | 使用 `LockOwner`，不跨 Worker/标签页/进程 |
+| `ReadWriteLock`, `StampedLock` | concurrency 包；读多写少或需要乐观版本校验 | 不支持隐式读锁升级；共享外部资源仍用服务端/分布式锁 |
 | `DuplicateRequestGuard` | 数据层需要重复提交保护的边界 | 与服务端幂等/冲突策略分别定义 |
 | `DeviceIdentity` | 应用有明确设备 ID 需求时的适配 | 不作为认证或高熵指纹默认方案 |
-| `EccCryptoSession`, `sha256Hex` | 与服务端约定匹配的协议/安全适配 | 不由页面自选加密策略；服务端契约不明时不启用 |
+| `EccCryptoSession`, `sha256Hex` | security 包；与服务端约定匹配的协议/安全适配 | 不由页面自选加密策略；服务端契约不明时不启用 |
+| `HmacSha256Signer`, `RsaPssSha256Signer/Verifier` | security 包；对已定义协议的消息签名/验签 | 只提供密码学原语，不自动定义 HTTP 签名协议；浏览器 HMAC 密钥不是秘密 |
+| `BrowserHardwareFingerprintCollector` | browser-fingerprint 包；经产品明确启用的浏览器风险信号 | SSR 不可用；必须评估隐私、浏览器漂移和用户同意 |
+| `SignedHardwareFingerprintProvider` | 注入 `HttpClient.hardwareFingerprintProvider` | 同时显式开启 `sendHardwareFingerprint`；服务端负责时钟、nonce 和相似度策略 |
 | `useOnlineStatus` | shell 的浏览器网络提示 | 不能代表 API、网关或其它服务的健康状态 |
 
 ## 组合示意
@@ -52,3 +57,5 @@ React Provider 或 framework-neutral 底座服务
 - `useEvent` 仅适用于上述固定 `FrameworkEvents`，不是任意 `EventBus<Events>` 的通用 Hook。需要产品事件的 React 订阅时，产品应提供自己的生命周期安全适配；未来可新增可注入的泛型 Hook。
 - `useOnlineStatus` 只读浏览器 online/offline；真实服务健康要通过产品自己的健康协议验证。
 - 底座没有产品主题、组件库适配、路由、权限决策、长期历史存储或业务工作流。把这些能力放入产品或独立扩展包，并分别验收。
+- 并发锁是单 JavaScript runtime 的协作式原语，不是基于 `Atomics` 的跨 Worker 锁，也不是分布式锁。
+- 浏览器硬件指纹默认不采集；HMAC 签名不能让嵌入前端的共享密钥成为可信认证秘密。
