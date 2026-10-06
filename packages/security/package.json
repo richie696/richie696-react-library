@@ -1,6 +1,6 @@
 {
   "name": "@richie696/react-framework-security",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Framework-neutral Web Crypto encryption, digest and signature primitives for Richie696 applications.",
   "license": "MIT",
   "repository": {

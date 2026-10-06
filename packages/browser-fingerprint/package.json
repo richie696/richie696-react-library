@@ -1,6 +1,6 @@
 {
   "name": "@richie696/react-framework-browser-fingerprint",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Opt-in browser hardware fingerprint collection and signed header providers for Richie696 applications.",
   "license": "MIT",
   "repository": {
@@ -23,5 +23,5 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist"
   },
-  "dependencies": { "@richie696/react-framework-security": "workspace:1.0.1" }
+  "dependencies": { "@richie696/react-framework-security": "workspace:1.0.2" }
 }

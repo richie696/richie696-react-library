@@ -26,6 +26,18 @@ pnpm add @richie696/react-framework
 - `EventBus`, `StateStore`, `ObservableResource`, `PollingStore` and `TimeSeriesStore`.
 - Compatibility re-exports for crypto helpers; new code should install the focused security package directly.
 
+## Internationalization deprecation
+
+`Translator` and its `TranslationValues` type are deprecated and will be removed in **1.0.3**. They remain exported with unchanged behavior until removal; new applications should use **[i18next](https://www.i18next.com/) + [react-i18next](https://react.i18next.com/)** directly.
+
+```bash
+pnpm add i18next react-i18next
+```
+
+Initialize the application-owned i18next instance and register feature translation resources in `app/i18n`. React components use `useTranslation` from `react-i18next`; non-React code uses the same i18next instance. This framework does not configure or wrap these libraries. See the [official React setup guide](https://react.i18next.com/latest/using-with-hooks).
+
+When migrating, update the legacy `{name}` placeholders to i18next's default `{{name}}` syntax and verify locale fallback behavior. `I18nDictionary` and the `ApiResult.i18n` response field remain part of the protocol contract and are not included in this removal.
+
 ## Example
 
 ```ts

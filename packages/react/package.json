@@ -1,6 +1,6 @@
 {
   "name": "@richie696/react-framework-react",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "React 19 bindings for the Richie696 framework-neutral foundation.",
   "license": "MIT",
   "repository": {
@@ -19,6 +19,6 @@
   "types": "./dist/index.d.ts",
   "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "scripts": { "build": "tsc -p tsconfig.build.json", "typecheck": "tsc -p tsconfig.json --noEmit", "clean": "rm -rf dist" },
-  "dependencies": { "@richie696/react-framework": "workspace:1.0.1" },
+  "dependencies": { "@richie696/react-framework": "workspace:1.0.2" },
   "peerDependencies": { "react": ">=19.0.0", "react-dom": ">=19.0.0" }
 }

@@ -1,6 +1,6 @@
 # Richie React 底座 API 使用指南
 
-这是 `@richie696/react-framework@0.1.0` 及其 React、并发、安全和浏览器指纹扩展包的使用边界，面向任意 React 产品。通用 UI/UE、编码和项目骨架要求分别见[规范索引](REACT_ENGINEERING_STANDARD.md)。升级依赖时先核对安装包的公开导出与行为；本指南不以 Angular 同名能力推断 React 契约。
+这是 `@richie696/react-framework@1.0.2` 及其 React、并发、安全和浏览器指纹扩展包的使用边界，面向任意 React 产品。通用 UI/UE、编码和项目骨架要求分别见[规范索引](REACT_ENGINEERING_STANDARD.md)。升级依赖时先核对安装包的公开导出与行为；本指南不以 Angular 同名能力推断 React 契约。
 
 基础包不依赖 React、路由器或 UI 组件库。React 包提供 Provider 与 Hooks；产品仍拥有 endpoint、DTO、业务规则、权限、主题、页面和设计系统。
 
@@ -21,7 +21,8 @@
 | `EventBus<Events>` | app/feature 拥有的类型化事实通知，订阅可取消 | 不代替父子 props/callback 或需要同步结果的函数调用 |
 | `FrameworkEventName`, `useEvent` | 仅固定 `FrameworkEvents` 的订阅 | 目前不能直接接任意产品事件 payload map |
 | `parseEventStream`, `HttpClient.requestStream` | feature 数据层处理 SSE 流、取消和错误 | 组件不自行拆流帧；流的重连/背压由产品决定 |
-| `Translator`, `I18nDictionary` | `core/i18n` 与 feature 文案资源 | 翻译资源仍由产品提供；协议字段名不是界面标签 |
+| `Translator`, `TranslationValues`（已弃用） | 仅保留现有调用兼容，计划在 **1.0.3** 移除 | 新代码直接使用 `i18next + react-i18next`，由产品装配实例与资源 |
+| `I18nDictionary`, `ApiResult.i18n` | 数据层的响应协议 | 保留协议类型与字段，不属于翻译运行时的移除范围 |
 | `StorageAdapter`, `BrowserStorage`, `MemoryStorage` | `core` 封装非敏感偏好；SSR/测试可换内存实现 | 不在组件散写存储，不存敏感凭证 |
 | `ManagedHeadersStore` | `core/api` 的受管响应头协议适配 | 仅受支持的白名单头；不要把任意认证信息当持久数据 |
 | `AsyncMutex`, `SingleFlight` | concurrency 包；具体临界区或共享一次加载 | 普通独立 Promise 不需要锁 |
@@ -34,6 +35,17 @@
 | `BrowserHardwareFingerprintCollector` | browser-fingerprint 包；经产品明确启用的浏览器风险信号 | SSR 不可用；必须评估隐私、浏览器漂移和用户同意 |
 | `SignedHardwareFingerprintProvider` | 注入 `HttpClient.hardwareFingerprintProvider` | 同时显式开启 `sendHardwareFingerprint`；服务端负责时钟、nonce 和相似度策略 |
 | `useOnlineStatus` | shell 的浏览器网络提示 | 不能代表 API、网关或其它服务的健康状态 |
+
+## 国际化迁移
+
+自实现的 `Translator` 与其参数类型 `TranslationValues` 已弃用，将在 **1.0.3** 移除；移除前保留公开导出与既有行为。具体 React 项目推荐直接安装 `i18next + react-i18next`，底座不引入或封装这两个依赖。
+
+- `app/i18n` 创建、初始化实例并汇总 feature 翻译资源；资源仍由各 feature 拥有，`core` 不反向导入 feature。
+- React 组件直接使用 `react-i18next` 的 `useTranslation`，非 React 代码使用同一个 i18next 实例，避免并行维护第二套翻译运行时。
+- 迁移时将 `{name}` 占位符改为 i18next 默认的 `{{name}}`，并核对缺失键、语言回退与动态翻译键的行为。
+- `I18nDictionary` 与 `ApiResult.i18n` 属于响应协议，本次不弃用，也不计划随 `Translator` 删除。
+
+接入方法见 [react-i18next 官方指南](https://react.i18next.com/latest/using-with-hooks)，提取与检查工具见 [i18next 官方提取文档](https://www.i18next.com/how-to/extracting-translations)。
 
 ## 组合示意
 

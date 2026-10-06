@@ -1,6 +1,6 @@
 {
   "name": "@richie696/react-framework",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Framework-neutral application foundation for Richie696 React projects.",
   "license": "MIT",
   "repository": {
@@ -20,8 +20,8 @@
   "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "scripts": { "build": "tsc -p tsconfig.build.json", "typecheck": "tsc -p tsconfig.json --noEmit", "clean": "rm -rf dist" },
   "dependencies": {
-    "@richie696/react-framework-concurrency": "workspace:1.0.1",
-    "@richie696/react-framework-security": "workspace:1.0.1",
+    "@richie696/react-framework-concurrency": "workspace:1.0.2",
+    "@richie696/react-framework-security": "workspace:1.0.2",
     "rxjs": "^7.8.2"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@richie696/react-framework-concurrency",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Framework-neutral async concurrency primitives for Richie696 applications.",
   "license": "MIT",
   "repository": {

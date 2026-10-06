@@ -24,6 +24,10 @@ pnpm add @richie696/react-framework @richie696/react-framework-react react react
 - `useExternalSnapshot` for `useSyncExternalStore` compatible stores.
 - `useObservableResource`, `useEvent` and `useOnlineStatus`.
 
+## Internationalization
+
+Applications should use **[i18next + react-i18next](https://react.i18next.com/latest/using-with-hooks)** directly and own instance initialization and translation resources in `app/i18n`. This package does not provide an internationalization Provider or Hook. The core framework's legacy `Translator` and `TranslationValues` are deprecated and will be removed in **1.0.3**; see the [migration notes](../framework/README.md#internationalization-deprecation).
+
 ## Example
 
 ```tsx

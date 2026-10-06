@@ -41,7 +41,7 @@ Native、Next.js、Remix 或 Node-side rendering 代码复用。`framework-react
 | 设备标识 | `DeviceIdentity` | Core 继续提供稳定随机设备 ID，不默认采集指纹 |
 | 硬件指纹 | 独立 browser-fingerprint 包 | 显式采集 Canvas/WebGL/屏幕等浏览器信号，可注入、可取消且 SSR 明确失败 |
 | HMAC/RSA 签名 | 独立 security 包的 `HmacSha256Signer` / `RsaPssSha256Signer` | 提供消息签名原语，不自行假设 HTTP 规范化、密钥签发或服务端验签协议 |
-| 国际化 | `Translator` | 字典、回退 locale 和插值均由应用注入 |
+| 国际化 | `Translator` / `TranslationValues` 已弃用，计划在 **1.0.3** 移除 | 产品直接使用 `i18next + react-i18next`，由 `app/i18n` 装配实例与 feature 资源；底座不封装翻译运行时，保留 `I18nDictionary` / `ApiResult.i18n` 响应协议 |
 | 摘要与请求头 | `sha256Hex` / `ManagedHeadersStore` | 使用 Web Crypto 和标准 Headers，不绑定 UI 或 HTTP provider |
 
 ## HTTP 服务契约
